@@ -26,36 +26,48 @@
 
               <span class="label label--underline" style="font-size:14px;">Portfolio</span>
 
-              <div style="margin-top: 8px;">
+              <div style="margin-top: 6px;">
 
-                <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid #ccc;">
-                  <span style="font-size:14px;">Total Value</span>
-                  <span style="font-size:14px; font-weight:700;">€{{ total_value }}</span>
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px solid #ccc;">
+                  <span style="font-size:13px;">Total Value</span>
+                  <span style="font-size:13px; font-weight:700;">€{{ total_value }}</span>
                 </div>
 
-                <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid #ccc;">
-                  <span style="font-size:14px;">Net Deposits <span style="font-size:11px;">(est.)</span></span>
-                  <span style="font-size:14px;">€{{ net_deposits }}</span>
+                {% if has_24h_change %}
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px solid #ccc;">
+                  <span style="font-size:13px;">24h Change</span>
+                  <span style="font-size:13px; font-weight:700;">€{{ change_24h }} ({{ change_24h_pct }}%)</span>
+                </div>
+                {% endif %}
+
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px solid #ccc;">
+                  <span style="font-size:13px;">Net Deposits <span style="font-size:11px;">(est.)</span></span>
+                  <span style="font-size:13px;">€{{ net_deposits }}</span>
                 </div>
 
-                <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid #ccc;">
-                  <span style="font-size:14px;">Free Cash</span>
-                  <span style="font-size:14px;">€{{ free_cash }}</span>
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px solid #ccc;">
+                  <span style="font-size:13px;">Free Cash</span>
+                  <span style="font-size:13px;">€{{ free_cash }}</span>
                 </div>
 
-                <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:2px solid #000;">
-                  <span style="font-size:14px;">Total Return</span>
-                  <span style="font-size:14px; font-weight:700;">€{{ total_return }}</span>
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:2px solid #000;">
+                  <span style="font-size:13px;">Total Return</span>
+                  <span style="font-size:13px; font-weight:700;">€{{ total_return }}</span>
                 </div>
 
-                <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid #ccc;">
-                  <span style="font-size:14px;">Return %</span>
-                  <span style="font-size:14px; font-weight:700;">{{ return_pct }}%</span>
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px solid #ccc;">
+                  <span style="font-size:13px;">Return %</span>
+                  <span style="font-size:13px; font-weight:700;">{{ return_pct }}%</span>
                 </div>
 
-                <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0;">
-                  <span style="font-size:14px;">Positions</span>
-                  <span style="font-size:14px;">{{ position_count }}</span>
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px solid #ccc;">
+                  <span style="font-size:13px;">Positions</span>
+                  <span style="font-size:13px;">{{ position_count }}</span>
+                </div>
+
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:5px 0;">
+                  <span style="font-size:12px;">Market</span>
+                  <span style="font-size:12px; font-weight:{% if market_open %}700{% else %}400{% endif %};">{{ market_status }}</span>
                 </div>
 
               </div>
