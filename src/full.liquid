@@ -70,9 +70,9 @@
 
               {% for p in positions limit: 10 %}
                 <div style="display:flex; justify-content:space-between; align-items:center; padding:4px 0; border-bottom:1px solid #ddd;">
-                  <span style="flex:0 0 27%; font-size:13px; font-weight:600;">{{ p.ticker }}</span>
-                  <span style="flex:0 0 38%; font-size:13px; text-align:right;">€{{ p.current_value }}</span>
-                  <span style="flex:0 0 30%; font-size:13px; text-align:right;">{{ p.ppl }}</span>
+                  <span style="flex:0 0 26%; font-size:13px; font-weight:600;">{{ p.ticker }}</span>
+                  <span style="flex:0 0 36%; font-size:13px; text-align:right;">€{{ p.current_value }}</span>
+                  <span style="flex:1; font-size:13px; text-align:right; padding-right:4px;">{{ p.ppl }}</span>
                 </div>
               {% endfor %}
 
