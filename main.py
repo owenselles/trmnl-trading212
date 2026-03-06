@@ -18,6 +18,11 @@ BASE_URLS = {
 }
 
 
+def _strip(value: str) -> str:
+    """TRMNL prepends ## to form field values when interpolating into polling URLs."""
+    return value[2:] if value.startswith("##") else value
+
+
 def _auth_header(api_key_id: str, api_secret: str) -> str:
     """Build HTTP Basic Auth header value from Trading212 key ID and secret."""
     credentials = base64.b64encode(f"{api_key_id}:{api_secret}".encode()).decode()
@@ -114,6 +119,10 @@ async def get_data(
     api_secret: str = Query(..., description="Trading212 API secret"),
     account_type: str = Query("live", description="live or demo"),
 ):
+    api_key_id = _strip(api_key_id)
+    api_secret = _strip(api_secret)
+    account_type = _strip(account_type)
+
     if account_type not in ("live", "demo"):
         account_type = "live"
 
