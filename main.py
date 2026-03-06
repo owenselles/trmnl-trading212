@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import time
 
 import httpx
@@ -7,7 +8,7 @@ from fastapi.responses import JSONResponse
 
 app = FastAPI(title="TRMNL Trading212 Plugin")
 
-# In-memory cache: key = "{api_key}:{account_type}", value = (payload, timestamp)
+# In-memory cache: key = "{api_key_id}:{account_type}", value = (payload, timestamp)
 _cache: dict[str, tuple[dict, float]] = {}
 CACHE_TTL_SECONDS = 300  # 5 minutes
 
@@ -15,6 +16,12 @@ BASE_URLS = {
     "live": "https://live.trading212.com/api/v0",
     "demo": "https://demo.trading212.com/api/v0",
 }
+
+
+def _auth_header(api_key_id: str, api_secret: str) -> str:
+    """Build HTTP Basic Auth header value from Trading212 key ID and secret."""
+    credentials = base64.b64encode(f"{api_key_id}:{api_secret}".encode()).decode()
+    return f"Basic {credentials}"
 
 
 def _fmt(value: float, sign: bool = False) -> str:
@@ -25,43 +32,59 @@ def _fmt(value: float, sign: bool = False) -> str:
     return formatted
 
 
-async def fetch_portfolio_data(api_key: str, account_type: str) -> dict:
+async def fetch_portfolio_data(api_key_id: str, api_secret: str, account_type: str) -> dict:
     base_url = BASE_URLS.get(account_type, BASE_URLS["live"])
-    headers = {"Authorization": api_key}
+    headers = {"Authorization": _auth_header(api_key_id, api_secret)}
 
     async with httpx.AsyncClient(timeout=10.0) as client:
-        cash_resp, portfolio_resp = await asyncio.gather(
-            client.get(f"{base_url}/equity/account/cash", headers=headers),
-            client.get(f"{base_url}/equity/portfolio", headers=headers),
+        summary_resp, positions_resp = await asyncio.gather(
+            client.get(f"{base_url}/equity/account/summary", headers=headers),
+            client.get(f"{base_url}/equity/positions", headers=headers),
         )
 
-    if cash_resp.status_code == 401 or portfolio_resp.status_code == 401:
-        return {"has_error": True, "error": "Invalid API key"}
+    if summary_resp.status_code == 401 or positions_resp.status_code == 401:
+        return {"has_error": True, "error": "Invalid API key or secret"}
 
-    if cash_resp.status_code != 200:
-        return {"has_error": True, "error": f"Cash API error {cash_resp.status_code}"}
+    if summary_resp.status_code != 200:
+        return {"has_error": True, "error": f"Account API error {summary_resp.status_code}"}
 
-    if portfolio_resp.status_code != 200:
-        return {"has_error": True, "error": f"Portfolio API error {portfolio_resp.status_code}"}
+    if positions_resp.status_code != 200:
+        return {"has_error": True, "error": f"Positions API error {positions_resp.status_code}"}
 
-    cash = cash_resp.json()
-    positions_raw: list[dict] = portfolio_resp.json()
+    summary = summary_resp.json()
+    positions_raw: list[dict] = positions_resp.json()
 
-    # Sort by absolute P&L descending (biggest movers first)
-    positions_raw.sort(key=lambda p: abs(p.get("ppl", 0.0)), reverse=True)
+    # Extract account-level values
+    investments = summary.get("investments", {})
+    cash = summary.get("cash", {})
+    total_value = summary.get("totalValue", 0.0)
+    total_cost = investments.get("totalCost", 0.0)
+    unrealized_pnl = investments.get("unrealizedProfitLoss", 0.0)
+    available_cash = cash.get("availableToTrade", 0.0)
+    currency = summary.get("currency", "")
+
+    # Sort positions by absolute unrealized P&L descending (biggest movers first)
+    positions_raw.sort(
+        key=lambda p: abs(p.get("walletImpact", {}).get("unrealizedProfitLoss", 0.0)),
+        reverse=True,
+    )
 
     positions = []
     for p in positions_raw[:10]:
-        ppl = p.get("ppl", 0.0)
-        current_value = p.get("quantity", 0.0) * p.get("currentPrice", 0.0)
+        wallet = p.get("walletImpact", {})
+        instrument = p.get("instrument", {})
+        ppl = wallet.get("unrealizedProfitLoss", 0.0)
+        current_value = wallet.get("currentValue", 0.0)
+
         # Strip exchange suffix from ticker for readability (e.g. "AAPL_US_EQ" → "AAPL")
-        ticker = p.get("ticker", "")
+        ticker = instrument.get("ticker", "")
         short_ticker = ticker.split("_")[0] if "_" in ticker else ticker
+
         positions.append(
             {
                 "ticker": short_ticker,
                 "quantity": _fmt(p.get("quantity", 0.0)),
-                "avg_price": _fmt(p.get("averagePrice", 0.0)),
+                "avg_price": _fmt(p.get("averagePricePaid", 0.0)),
                 "current_price": _fmt(p.get("currentPrice", 0.0)),
                 "current_value": _fmt(current_value),
                 "ppl": _fmt(ppl, sign=True),
@@ -70,15 +93,13 @@ async def fetch_portfolio_data(api_key: str, account_type: str) -> dict:
             }
         )
 
-    total_result = cash.get("result", 0.0)
-
     return {
-        "total_value": _fmt(cash.get("total", 0.0)),
-        "free_cash": _fmt(cash.get("free", 0.0)),
-        "invested": _fmt(cash.get("invested", 0.0)),
-        "unrealized_pnl": _fmt(total_result, sign=True),
-        "unrealized_pnl_raw": round(total_result, 2),
-        "is_pnl_positive": total_result >= 0,
+        "total_value": _fmt(total_value),
+        "free_cash": _fmt(available_cash),
+        "invested": _fmt(total_cost),
+        "unrealized_pnl": _fmt(unrealized_pnl, sign=True),
+        "unrealized_pnl_raw": round(unrealized_pnl, 2),
+        "is_pnl_positive": unrealized_pnl >= 0,
         "position_count": len(positions_raw),
         "positions": positions,
         "account_type": account_type.upper(),
@@ -89,13 +110,14 @@ async def fetch_portfolio_data(api_key: str, account_type: str) -> dict:
 
 @app.get("/data")
 async def get_data(
-    api_key: str = Query(..., description="Trading212 API key"),
+    api_key_id: str = Query(..., description="Trading212 API key ID"),
+    api_secret: str = Query(..., description="Trading212 API secret"),
     account_type: str = Query("live", description="live or demo"),
 ):
     if account_type not in ("live", "demo"):
         account_type = "live"
 
-    cache_key = f"{api_key}:{account_type}"
+    cache_key = f"{api_key_id}:{account_type}"
     now = time.time()
 
     if cache_key in _cache:
@@ -103,7 +125,7 @@ async def get_data(
         if now - cached_at < CACHE_TTL_SECONDS:
             return JSONResponse(content=cached_payload)
 
-    payload = await fetch_portfolio_data(api_key, account_type)
+    payload = await fetch_portfolio_data(api_key_id, api_secret, account_type)
 
     if not payload.get("has_error"):
         _cache[cache_key] = (payload, now)

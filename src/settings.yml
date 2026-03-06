@@ -9,18 +9,23 @@ no_screen_padding: "no"
 dark_mode: "no"
 static_data: ""
 polling_verb: get
-# Replace YOUR-RAILWAY-APP with your actual Railway domain after deployment.
-polling_url: "https://web-production-c5105.up.railway.app/data?api_key=##{{ api_key }}&account_type=##{{ account_type }}"
+polling_url: "https://web-production-c5105.up.railway.app/data?api_key_id=##{{ api_key_id }}&api_secret=##{{ api_secret }}&account_type=##{{ account_type }}"
 polling_headers: ""
 name: Trading212 Portfolio
 refresh_interval: 60
 
 custom_fields:
-  - keyname: api_key
+  - keyname: api_key_id
     field_type: password
-    name: Trading212 API Key
-    description: "Generate in Trading212 \u2192 Settings \u2192 API (Invest/ISA accounts only)"
-    placeholder: "sa_api_key_..."
+    name: Trading212 API Key ID
+    description: "The Key ID shown when you generate an API key in Trading212 \u2192 Settings \u2192 API"
+    placeholder: "key_id_..."
+
+  - keyname: api_secret
+    field_type: password
+    name: Trading212 API Secret
+    description: "The Secret shown when you generate an API key in Trading212 \u2192 Settings \u2192 API"
+    placeholder: "secret_..."
 
   - keyname: account_type
     field_type: select
