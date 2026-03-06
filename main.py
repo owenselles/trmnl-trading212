@@ -2,6 +2,9 @@ import asyncio
 import base64
 import time
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+
+_AMS = ZoneInfo("Europe/Amsterdam")
 
 import httpx
 from fastapi import FastAPI, Query
@@ -116,7 +119,7 @@ def _get_market_status(exchanges: list) -> dict:
                 if next_close:
                     open_markets.append({
                         "name": name,
-                        "closes_at": next_close["dt"].strftime("%H:%M"),
+                        "closes_at": next_close["dt"].astimezone(_AMS).strftime("%H:%M"),
                         "closes_at_dt": next_close["dt"],
                     })
             elif not is_open and future:
@@ -126,7 +129,7 @@ def _get_market_status(exchanges: list) -> dict:
                 )
                 if next_open:
                     upcoming_opens.append({
-                        "opens_at": next_open["dt"].strftime("%H:%M"),
+                        "opens_at": next_open["dt"].astimezone(_AMS).strftime("%H:%M"),
                         "opens_at_dt": next_open["dt"],
                     })
 
@@ -135,7 +138,7 @@ def _get_market_status(exchanges: list) -> dict:
         m = open_markets[0]
         return {
             "market_open": True,
-            "market_status": f"Open · closes {m['closes_at']} UTC",
+            "market_status": f"Open · closes {m['closes_at']} AMS",
             "market_name": m["name"],
         }
     elif upcoming_opens:
@@ -143,7 +146,7 @@ def _get_market_status(exchanges: list) -> dict:
         m = upcoming_opens[0]
         return {
             "market_open": False,
-            "market_status": f"Closed · opens {m['opens_at']} UTC",
+            "market_status": f"Closed · opens {m['opens_at']} AMS",
             "market_name": "",
         }
     else:
