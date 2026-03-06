@@ -63,10 +63,13 @@ async def fetch_portfolio_data(api_key_id: str, api_secret: str, account_type: s
     investments = summary.get("investments", {})
     cash = summary.get("cash", {})
     total_value = summary.get("totalValue", 0.0)
-    total_cost = investments.get("totalCost", 0.0)
     unrealized_pnl = investments.get("unrealizedProfitLoss", 0.0)
+    realized_pnl = investments.get("realizedProfitLoss", 0.0)
     available_cash = cash.get("availableToTrade", 0.0)
-    currency = summary.get("currency", "")
+
+    # Net deposits ≈ total value minus all P&L ever made (proxy, slightly off by fees)
+    total_return = unrealized_pnl + realized_pnl
+    net_deposits = total_value - total_return
 
     # Sort positions by current value descending (largest holdings first)
     positions_raw.sort(
@@ -75,7 +78,7 @@ async def fetch_portfolio_data(api_key_id: str, api_secret: str, account_type: s
     )
 
     positions = []
-    for p in positions_raw[:10]:
+    for p in positions_raw[:14]:
         wallet = p.get("walletImpact", {})
         instrument = p.get("instrument", {})
         ppl = wallet.get("unrealizedProfitLoss", 0.0)
@@ -98,16 +101,17 @@ async def fetch_portfolio_data(api_key_id: str, api_secret: str, account_type: s
             }
         )
 
-    pnl_pct = (unrealized_pnl / total_cost * 100) if total_cost != 0 else 0.0
+    return_pct = (total_return / net_deposits * 100) if net_deposits != 0 else 0.0
 
     return {
         "total_value": _fmt(total_value),
         "free_cash": _fmt(available_cash),
-        "invested": _fmt(total_cost),
+        "net_deposits": _fmt(net_deposits),
+        "total_return": _fmt(total_return, sign=True),
+        "return_pct": _fmt(return_pct, sign=True),
         "unrealized_pnl": _fmt(unrealized_pnl, sign=True),
-        "unrealized_pnl_pct": _fmt(pnl_pct, sign=True),
-        "unrealized_pnl_raw": round(unrealized_pnl, 2),
-        "is_pnl_positive": unrealized_pnl >= 0,
+        "realized_pnl": _fmt(realized_pnl, sign=True),
+        "is_return_positive": total_return >= 0,
         "position_count": len(positions_raw),
         "positions": positions,
         "has_error": False,

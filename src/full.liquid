@@ -34,8 +34,8 @@
                 </div>
 
                 <div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid #ccc;">
-                  <span class="label" style="font-size:12px;">Cost Basis</span>
-                  <span class="label" style="font-size:12px;">€{{ invested }}</span>
+                  <span class="label" style="font-size:12px;">Net Deposits <span style="font-size:10px; font-weight:400;">(est.)</span></span>
+                  <span class="label" style="font-size:12px;">€{{ net_deposits }}</span>
                 </div>
 
                 <div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid #ccc;">
@@ -44,13 +44,23 @@
                 </div>
 
                 <div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid #000;">
-                  <span class="label" style="font-size:12px;">Unrealized P&amp;L</span>
-                  <span class="label" style="font-size:12px; font-weight:700;">€{{ unrealized_pnl }}</span>
+                  <span class="label" style="font-size:12px;">Total Return</span>
+                  <span class="label" style="font-size:12px; font-weight:700;">€{{ total_return }}</span>
                 </div>
 
                 <div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid #ccc;">
                   <span class="label" style="font-size:12px;">Return</span>
-                  <span class="label" style="font-size:12px; font-weight:700;">{{ unrealized_pnl_pct }}%</span>
+                  <span class="label" style="font-size:12px; font-weight:700;">{{ return_pct }}%</span>
+                </div>
+
+                <div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid #ccc;">
+                  <span class="label" style="font-size:12px;">Unrealized</span>
+                  <span class="label" style="font-size:12px;">€{{ unrealized_pnl }}</span>
+                </div>
+
+                <div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid #ccc;">
+                  <span class="label" style="font-size:12px;">Realized</span>
+                  <span class="label" style="font-size:12px;">€{{ realized_pnl }}</span>
                 </div>
 
                 <div style="display:flex; justify-content:space-between; padding:4px 0;">
@@ -68,8 +78,8 @@
 
               <span class="label label--underline">Top Positions (by Value)</span>
 
-              {% for p in positions limit: 8 %}
-                <div style="display:flex; justify-content:space-between; padding:3px 0; border-bottom:1px solid #ddd;">
+              {% for p in positions limit: 12 %}
+                <div style="display:flex; justify-content:space-between; padding:2px 0; border-bottom:1px solid #ddd;">
                   <span class="label" style="flex:0 0 28%; font-size:11px; font-weight:600;">{{ p.ticker }}</span>
                   <span class="label" style="flex:0 0 37%; font-size:11px; text-align:right;">€{{ p.current_value }}</span>
                   <span class="label" style="flex:0 0 30%; font-size:11px; text-align:right;">{{ p.ppl }}</span>
