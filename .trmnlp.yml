@@ -1,0 +1,13 @@
+---
+watch:
+  - .trmnlp.yml
+  - src
+
+custom_fields:
+  api_key: "{{ env.TRADING212_API_KEY }}"
+  account_type: live
+
+variables:
+  trmnl:
+    plugin_settings:
+      instance_name: My Portfolio

@@ -1,0 +1,32 @@
+#
+# Changes to this file will be overwritten by `trmnlp pull`.
+#
+# Docs: https://help.trmnl.com/en/articles/10542599-importing-and-exporting-private-plugins
+#
+---
+strategy: polling
+no_screen_padding: "no"
+dark_mode: "no"
+static_data: ""
+polling_verb: get
+# Replace YOUR-RAILWAY-APP with your actual Railway domain after deployment.
+polling_url: "https://YOUR-RAILWAY-APP.up.railway.app/data?api_key=##{{ api_key }}&account_type=##{{ account_type }}"
+polling_headers: ""
+name: Trading212 Portfolio
+refresh_interval: 60
+
+custom_fields:
+  - keyname: api_key
+    field_type: password
+    name: Trading212 API Key
+    description: "Generate in Trading212 \u2192 Settings \u2192 API (Invest/ISA accounts only)"
+    placeholder: "sa_api_key_..."
+
+  - keyname: account_type
+    field_type: select
+    name: Account Type
+    description: "Choose Live or Demo account"
+    options:
+      - Live
+      - Demo
+    default: live
