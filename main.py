@@ -19,6 +19,9 @@ CACHE_TTL_SECONDS = 300  # 5 minutes
 # Snapshot store for 24hr change: key = cache_key, value = list of (timestamp, raw_value)
 _snapshots: dict[str, list[tuple[float, float]]] = {}
 
+# Snapshot store for per-position 24hr change: key = "{cache_key}:{short_ticker}"
+_position_snapshots: dict[str, list[tuple[float, float]]] = {}
+
 BASE_URLS = {
     "live": "https://live.trading212.com/api/v0",
     "demo": "https://demo.trading212.com/api/v0",
@@ -44,20 +47,20 @@ def _fmt(value: float, sign: bool = False) -> str:
     return formatted
 
 
-def _record_snapshot(cache_key: str, value: float) -> None:
-    """Record a portfolio value snapshot for 24hr change tracking."""
+def _record_snapshot(store: dict, key: str, value: float) -> None:
+    """Record a value snapshot for 24hr change tracking."""
     now = time.time()
-    if cache_key not in _snapshots:
-        _snapshots[cache_key] = []
-    _snapshots[cache_key].append((now, value))
+    if key not in store:
+        store[key] = []
+    store[key].append((now, value))
     # Prune snapshots older than 48 hours
     cutoff = now - 172800
-    _snapshots[cache_key] = [(t, v) for t, v in _snapshots[cache_key] if t > cutoff]
+    store[key] = [(t, v) for t, v in store[key] if t > cutoff]
 
 
-def _get_24hr_change(cache_key: str, current_value: float) -> tuple[float | None, float | None]:
-    """Calculate 24hr portfolio value change. Returns (change, change_pct) or (None, None)."""
-    snaps = _snapshots.get(cache_key, [])
+def _get_24hr_change(store: dict, key: str, current_value: float) -> tuple[float | None, float | None]:
+    """Calculate 24hr value change. Returns (change, change_pct) or (None, None)."""
+    snaps = store.get(key, [])
     if not snaps:
         return None, None
 
@@ -255,8 +258,10 @@ async def fetch_portfolio_data(api_key_id: str, api_secret: str, account_type: s
         ppl = wallet.get("unrealizedProfitLoss", 0.0)
         current_value_pos = wallet.get("currentValue", 0.0)
 
-        # Strip exchange suffix from ticker for readability (e.g. "AAPL_US_EQ" → "AAPL")
-        ticker = instrument.get("ticker", "")
+        # Prefer top-level ticker (stays current after SPACs/mergers) over instrument.ticker (can be stale)
+        top_level_ticker = p.get("ticker", "")
+        instrument_ticker = instrument.get("ticker", "")
+        ticker = top_level_ticker if top_level_ticker else instrument_ticker
         short_ticker = ticker.split("_")[0] if "_" in ticker else ticker
 
         positions.append(
@@ -266,6 +271,7 @@ async def fetch_portfolio_data(api_key_id: str, api_secret: str, account_type: s
                 "avg_price": _fmt(p.get("averagePricePaid", 0.0)),
                 "current_price": _fmt(p.get("currentPrice", 0.0)),
                 "current_value": _fmt(current_value_pos),
+                "current_value_raw": current_value_pos,
                 "ppl": _fmt(ppl, sign=True),
                 "ppl_raw": round(ppl, 2),
                 "is_positive": ppl >= 0,
@@ -326,14 +332,30 @@ async def get_data(
         total_value_raw = payload.pop("total_value_raw", 0.0)
 
         # Calculate 24hr change before recording new snapshot
-        change_24h, change_24h_pct = _get_24hr_change(cache_key, total_value_raw)
-        _record_snapshot(cache_key, total_value_raw)
+        change_24h, change_24h_pct = _get_24hr_change(_snapshots, cache_key, total_value_raw)
+        _record_snapshot(_snapshots, cache_key, total_value_raw)
 
         if change_24h is not None:
             payload["change_24h"] = _fmt(change_24h, sign=True)
             payload["change_24h_pct"] = _fmt(change_24h_pct, sign=True)
             payload["has_24h_change"] = True
             payload["is_24h_positive"] = change_24h >= 0
+
+        # Calculate and record per-position 24h changes
+        for pos in payload.get("positions", []):
+            pos_key = f"{cache_key}:{pos['ticker']}"
+            pos_value_raw = pos.pop("current_value_raw", None)
+            if pos_value_raw is not None:
+                pos_change, pos_change_pct = _get_24hr_change(_position_snapshots, pos_key, pos_value_raw)
+                _record_snapshot(_position_snapshots, pos_key, pos_value_raw)
+                if pos_change is not None and payload["has_24h_change"]:
+                    pos["change_24h_pct"] = _fmt(pos_change_pct, sign=True)
+                    pos["is_pos_24h_positive"] = pos_change >= 0
+                    pos["has_pos_24h_change"] = True
+                else:
+                    pos["has_pos_24h_change"] = False
+            else:
+                pos["has_pos_24h_change"] = False
 
         _cache[cache_key] = (payload, now)
 

@@ -82,11 +82,21 @@
 
               <span class="label label--underline" style="font-size:14px;">Top Positions (by Value)</span>
 
-              {% for p in positions limit: 10 %}
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:2px 0; border-bottom:2px solid #000; margin-bottom:2px;">
+                <span style="flex:0 0 22%; font-size:10px; color:#666;">Ticker</span>
+                <span style="flex:0 0 24%; font-size:10px; color:#666; text-align:right;">Value</span>
+                <span style="flex:0 0 24%; font-size:10px; color:#666; text-align:right;">P&amp;L</span>
+                <span style="flex:1; font-size:10px; color:#666; text-align:right; padding-right:14px;">24h%</span>
+              </div>
+
+              {% for p in positions limit: 8 %}
                 <div style="display:flex; justify-content:space-between; align-items:center; padding:4px 0; border-bottom:1px solid #ddd;">
-                  <span style="flex:0 0 26%; font-size:13px; font-weight:600;">{{ p.ticker }}</span>
-                  <span style="flex:0 0 26%; font-size:13px; text-align:right;">€{{ p.current_value }}</span>
-                  <span style="flex:1; font-size:13px; text-align:right; padding-right:14px;">{{ p.ppl }}</span>
+                  <span style="flex:0 0 22%; font-size:12px; font-weight:600;">{{ p.ticker }}</span>
+                  <span style="flex:0 0 24%; font-size:12px; text-align:right;">€{{ p.current_value }}</span>
+                  <span style="flex:0 0 24%; font-size:12px; text-align:right;">{{ p.ppl }}</span>
+                  <span style="flex:1; font-size:12px; text-align:right; padding-right:14px;">
+                    {%- if p.has_pos_24h_change -%}{{ p.change_24h_pct }}%{%- endif -%}
+                  </span>
                 </div>
               {% endfor %}
 
