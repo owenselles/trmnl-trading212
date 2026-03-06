@@ -21,60 +21,63 @@
         <div class="columns">
 
           <!-- LEFT: Portfolio Summary -->
-          <div class="column" style="flex: 0 0 38%;">
+          <div class="column" style="flex: 0 0 40%;">
             <div class="markdown">
 
               <span class="label label--underline">Portfolio</span>
 
-              <div class="item">
-                <span class="label">Total Value</span>
-                <span class="value">€{{ total_value }}</span>
-              </div>
+              <div style="margin-top: 6px;">
 
-              <div class="item">
-                <span class="label">Invested</span>
-                <span class="value">€{{ invested }}</span>
-              </div>
+                <div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid #ccc;">
+                  <span class="label" style="font-size:12px;">Total Value</span>
+                  <span class="label" style="font-size:12px; font-weight:700;">€{{ total_value }}</span>
+                </div>
 
-              <div class="item">
-                <span class="label">Free Cash</span>
-                <span class="value">€{{ free_cash }}</span>
-              </div>
+                <div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid #ccc;">
+                  <span class="label" style="font-size:12px;">Cost Basis</span>
+                  <span class="label" style="font-size:12px;">€{{ invested }}</span>
+                </div>
 
-              <div class="item" style="border-top: 1px solid #000; padding-top: 6px; margin-top: 8px;">
-                <span class="label">Unrealized P&amp;L</span>
-                <span class="value">€{{ unrealized_pnl }}</span>
-              </div>
+                <div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid #ccc;">
+                  <span class="label" style="font-size:12px;">Free Cash</span>
+                  <span class="label" style="font-size:12px;">€{{ free_cash }}</span>
+                </div>
 
-              <div class="item" style="margin-top: 12px;">
-                <span class="label">Positions</span>
-                <span class="value">{{ position_count }}</span>
-              </div>
+                <div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid #000;">
+                  <span class="label" style="font-size:12px;">Unrealized P&amp;L</span>
+                  <span class="label" style="font-size:12px; font-weight:700;">€{{ unrealized_pnl }}</span>
+                </div>
 
-              <div class="item">
-                <span class="label">Account</span>
-                <span class="value">{{ account_type }}</span>
-              </div>
+                <div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid #ccc;">
+                  <span class="label" style="font-size:12px;">Return</span>
+                  <span class="label" style="font-size:12px; font-weight:700;">{{ unrealized_pnl_pct }}%</span>
+                </div>
 
+                <div style="display:flex; justify-content:space-between; padding:4px 0;">
+                  <span class="label" style="font-size:12px;">Positions</span>
+                  <span class="label" style="font-size:12px;">{{ position_count }}</span>
+                </div>
+
+              </div>
             </div>
           </div>
 
-          <!-- RIGHT: Top Positions -->
+          <!-- RIGHT: Top Positions by Value -->
           <div class="column" style="flex: 1; border-left: 1px solid #000; padding-left: 12px;">
             <div class="markdown">
 
-              <span class="label label--underline">Top Positions (by P&amp;L)</span>
+              <span class="label label--underline">Top Positions (by Value)</span>
 
               {% for p in positions limit: 8 %}
-                <div class="item" style="display: flex; justify-content: space-between; padding: 2px 0; border-bottom: 1px solid #ddd;">
-                  <span class="label" style="flex: 0 0 28%; font-size: 11px; font-weight: 600;">{{ p.ticker }}</span>
-                  <span class="label" style="flex: 0 0 37%; font-size: 11px; text-align: right;">€{{ p.current_value }}</span>
-                  <span class="label" style="flex: 0 0 30%; font-size: 11px; text-align: right;">{{ p.ppl }}</span>
+                <div style="display:flex; justify-content:space-between; padding:3px 0; border-bottom:1px solid #ddd;">
+                  <span class="label" style="flex:0 0 28%; font-size:11px; font-weight:600;">{{ p.ticker }}</span>
+                  <span class="label" style="flex:0 0 37%; font-size:11px; text-align:right;">€{{ p.current_value }}</span>
+                  <span class="label" style="flex:0 0 30%; font-size:11px; text-align:right;">{{ p.ppl }}</span>
                 </div>
               {% endfor %}
 
               {% if position_count == 0 %}
-                <div class="content" style="font-style: italic; margin-top: 16px;">No open positions</div>
+                <div class="content" style="font-style:italic; margin-top:16px;">No open positions</div>
               {% endif %}
 
             </div>

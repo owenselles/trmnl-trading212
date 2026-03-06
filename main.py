@@ -68,9 +68,9 @@ async def fetch_portfolio_data(api_key_id: str, api_secret: str, account_type: s
     available_cash = cash.get("availableToTrade", 0.0)
     currency = summary.get("currency", "")
 
-    # Sort positions by absolute unrealized P&L descending (biggest movers first)
+    # Sort positions by current value descending (largest holdings first)
     positions_raw.sort(
-        key=lambda p: abs(p.get("walletImpact", {}).get("unrealizedProfitLoss", 0.0)),
+        key=lambda p: p.get("walletImpact", {}).get("currentValue", 0.0),
         reverse=True,
     )
 
@@ -98,16 +98,18 @@ async def fetch_portfolio_data(api_key_id: str, api_secret: str, account_type: s
             }
         )
 
+    pnl_pct = (unrealized_pnl / total_cost * 100) if total_cost != 0 else 0.0
+
     return {
         "total_value": _fmt(total_value),
         "free_cash": _fmt(available_cash),
         "invested": _fmt(total_cost),
         "unrealized_pnl": _fmt(unrealized_pnl, sign=True),
+        "unrealized_pnl_pct": _fmt(pnl_pct, sign=True),
         "unrealized_pnl_raw": round(unrealized_pnl, 2),
         "is_pnl_positive": unrealized_pnl >= 0,
         "position_count": len(positions_raw),
         "positions": positions,
-        "account_type": account_type.upper(),
         "has_error": False,
         "error": "",
     }
