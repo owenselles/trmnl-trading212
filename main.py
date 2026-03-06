@@ -173,11 +173,27 @@ async def fetch_portfolio_data(api_key_id: str, api_secret: str, account_type: s
     headers = {"Authorization": _auth_header(api_key_id, api_secret)}
 
     async with httpx.AsyncClient(timeout=10.0) as client:
-        summary_resp, positions_resp, exchanges_resp = await asyncio.gather(
+        summary_resp, positions_resp, exchanges_resp, pies_list_resp = await asyncio.gather(
             client.get(f"{base_url}/equity/account/summary", headers=headers),
             client.get(f"{base_url}/equity/positions", headers=headers),
             client.get(f"{base_url}/equity/metadata/exchanges", headers=headers),
+            client.get(f"{base_url}/equity/pies", headers=headers),
         )
+
+        # Fetch each pie's details to get instrument tickers for stocks held only in pies
+        pie_tickers: set[str] = set()
+        if pies_list_resp.status_code == 200:
+            pies_list = pies_list_resp.json()
+            if isinstance(pies_list, list) and pies_list:
+                pie_detail_resps = await asyncio.gather(*[
+                    client.get(f"{base_url}/equity/pies/{pie['id']}", headers=headers)
+                    for pie in pies_list
+                ])
+                for detail_resp in pie_detail_resps:
+                    if detail_resp.status_code == 200:
+                        detail = detail_resp.json()
+                        instrument_shares = detail.get("settings", {}).get("instrumentShares", {})
+                        pie_tickers.update(instrument_shares.keys())
 
     if summary_resp.status_code == 401 or positions_resp.status_code == 401:
         return {"has_error": True, "error": "Invalid API key or secret"}
@@ -214,6 +230,13 @@ async def fetch_portfolio_data(api_key_id: str, api_secret: str, account_type: s
     position_exchange_codes: set[str] = set()
     for p in positions_raw:
         ticker = p.get("instrument", {}).get("ticker", "")
+        parts = ticker.split("_")
+        if len(parts) >= 2:
+            position_exchange_codes.add(parts[1].upper())
+
+    # Also include exchange codes from pie instrument tickers (stocks held only in pies
+    # don't appear in /equity/positions so they'd otherwise be missed)
+    for ticker in pie_tickers:
         parts = ticker.split("_")
         if len(parts) >= 2:
             position_exchange_codes.add(parts[1].upper())
