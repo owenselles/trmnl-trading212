@@ -192,7 +192,7 @@ async def fetch_portfolio_data(api_key_id: str, api_secret: str, account_type: s
                 for detail_resp in pie_detail_resps:
                     if detail_resp.status_code == 200:
                         detail = detail_resp.json()
-                        instrument_shares = detail.get("settings", {}).get("instrumentShares", {})
+                        instrument_shares = detail.get("settings", {}).get("instrumentShares") or {}
                         pie_tickers.update(instrument_shares.keys())
 
     if summary_resp.status_code == 401 or positions_resp.status_code == 401:
