@@ -65,10 +65,12 @@
                   <span style="font-size:13px;">{{ position_count }}</span>
                 </div>
 
-                <div style="display:flex; justify-content:space-between; align-items:center; padding:5px 0;">
-                  <span style="font-size:12px;">Market</span>
-                  <span style="font-size:12px; font-weight:{% if market_open %}700{% else %}400{% endif %};">{{ market_status }}</span>
+                {% for ex in exchange_statuses %}
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:3px 0; {% unless forloop.last %}border-bottom:1px solid #eee;{% endunless %}">
+                  <span style="font-size:11px;">{{ ex.name }}</span>
+                  <span style="font-size:11px; font-weight:{% if ex.is_open %}700{% else %}400{% endif %};">{{ ex.status }}</span>
                 </div>
+                {% endfor %}
 
               </div>
             </div>

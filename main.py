@@ -77,84 +77,95 @@ def _get_24hr_change(cache_key: str, current_value: float) -> tuple[float | None
     return change, change_pct
 
 
-def _get_market_status(exchanges: list) -> dict:
-    """Parse exchange time events to determine open/closed status and next event time."""
+def _parse_exchange_schedule(exchange: dict, now: datetime) -> dict | None:
+    """Parse a single exchange's working schedule and return its status dict, or None if no data."""
+    name = exchange.get("name", "")
+    for schedule in exchange.get("workingSchedules", []):
+        events = []
+        for e in schedule.get("timeEvents", []):
+            try:
+                dt = datetime.fromisoformat(e["date"].replace("Z", "+00:00"))
+                events.append({"dt": dt, "type": e["type"]})
+            except Exception:
+                continue
+        events.sort(key=lambda x: x["dt"])
+
+        past = [e for e in events if e["dt"] <= now]
+        future = [e for e in events if e["dt"] > now]
+
+        if not past and not future:
+            break
+
+        is_open = False
+        if past:
+            last = past[-1]
+            is_open = last["type"] in (
+                "OPEN", "BREAK_END", "AFTER_HOURS_OPEN", "PRE_MARKET_OPEN", "OVERNIGHT_OPEN"
+            )
+
+        _far_future = datetime.max.replace(tzinfo=timezone.utc)
+
+        if is_open:
+            next_event = next(
+                (e for e in future if e["type"] in ("CLOSE", "BREAK_START", "AFTER_HOURS_CLOSE")),
+                None,
+            )
+            status = (
+                f"Open · closes {next_event['dt'].astimezone(_AMS).strftime('%H:%M')} AMS"
+                if next_event else "Open"
+            )
+            sort_key = (0, next_event["dt"] if next_event else _far_future)
+        else:
+            next_event = next(
+                (e for e in future if e["type"] in ("OPEN", "PRE_MARKET_OPEN")),
+                None,
+            )
+            status = (
+                f"Closed · opens {next_event['dt'].astimezone(_AMS).strftime('%H:%M')} AMS"
+                if next_event else "Closed"
+            )
+            sort_key = (1, next_event["dt"] if next_event else _far_future)
+
+        return {"name": name, "is_open": is_open, "status": status, "sort_key": sort_key}
+
+    return None
+
+
+def _get_exchange_statuses(exchanges: list, position_codes: set[str]) -> list[dict]:
+    """Return open/closed status for each exchange relevant to the given position codes.
+
+    position_codes are the exchange segments extracted from position tickers
+    (e.g. ticker 'AAPL_US_EQ' → code 'US').  Matching is case-insensitive substring
+    check against the exchange name.  If nothing matches we fall back to all exchanges
+    that are currently open or have an upcoming open event.
+    """
     if not isinstance(exchanges, list):
-        return {"market_open": False, "market_status": "Unknown", "market_name": ""}
+        return []
 
     now = datetime.now(timezone.utc)
-    open_markets = []
-    upcoming_opens = []
+    results = []
 
     for exchange in exchanges:
-        name = exchange.get("name", "Market")
-        for schedule in exchange.get("workingSchedules", []):
-            events = []
-            for e in schedule.get("timeEvents", []):
-                try:
-                    dt = datetime.fromisoformat(e["date"].replace("Z", "+00:00"))
-                    events.append({"dt": dt, "type": e["type"]})
-                except Exception:
-                    continue
-            events.sort(key=lambda x: x["dt"])
+        name = exchange.get("name", "")
+        name_upper = name.upper()
 
-            past = [e for e in events if e["dt"] <= now]
-            future = [e for e in events if e["dt"] > now]
-
-            if not past and not future:
+        if position_codes:
+            if not any(code in name_upper or name_upper == code for code in position_codes):
                 continue
 
-            is_open = False
-            if past:
-                last = past[-1]
-                is_open = last["type"] in (
-                    "OPEN", "BREAK_END", "AFTER_HOURS_OPEN", "PRE_MARKET_OPEN", "OVERNIGHT_OPEN"
-                )
+        parsed = _parse_exchange_schedule(exchange, now)
+        if parsed:
+            results.append(parsed)
 
-            if is_open and future:
-                next_close = next(
-                    (e for e in future if e["type"] in ("CLOSE", "BREAK_START", "AFTER_HOURS_CLOSE")),
-                    None,
-                )
-                if next_close:
-                    open_markets.append({
-                        "name": name,
-                        "closes_at": next_close["dt"].astimezone(_AMS).strftime("%H:%M"),
-                        "closes_at_dt": next_close["dt"],
-                    })
-            elif not is_open and future:
-                next_open = next(
-                    (e for e in future if e["type"] in ("OPEN", "PRE_MARKET_OPEN")),
-                    None,
-                )
-                if next_open:
-                    upcoming_opens.append({
-                        "opens_at": next_open["dt"].astimezone(_AMS).strftime("%H:%M"),
-                        "opens_at_dt": next_open["dt"],
-                    })
+    # Fallback: if position-code filtering yielded nothing, show all with known status
+    if not results:
+        for exchange in exchanges:
+            parsed = _parse_exchange_schedule(exchange, now)
+            if parsed:
+                results.append(parsed)
 
-    if open_markets:
-        open_markets.sort(key=lambda x: x["closes_at_dt"])
-        m = open_markets[0]
-        return {
-            "market_open": True,
-            "market_status": f"Open · closes {m['closes_at']} AMS",
-            "market_name": m["name"],
-        }
-    elif upcoming_opens:
-        upcoming_opens.sort(key=lambda x: x["opens_at_dt"])
-        m = upcoming_opens[0]
-        return {
-            "market_open": False,
-            "market_status": f"Closed · opens {m['opens_at']} AMS",
-            "market_name": "",
-        }
-    else:
-        return {
-            "market_open": False,
-            "market_status": "Closed",
-            "market_name": "",
-        }
+    results.sort(key=lambda x: x["sort_key"])
+    return [{"name": r["name"], "is_open": r["is_open"], "status": r["status"]} for r in results]
 
 
 async def fetch_portfolio_data(api_key_id: str, api_secret: str, account_type: str) -> dict:
@@ -199,6 +210,14 @@ async def fetch_portfolio_data(api_key_id: str, api_secret: str, account_type: s
         reverse=True,
     )
 
+    # Collect exchange codes from position tickers (e.g. "AAPL_US_EQ" → "US")
+    position_exchange_codes: set[str] = set()
+    for p in positions_raw:
+        ticker = p.get("instrument", {}).get("ticker", "")
+        parts = ticker.split("_")
+        if len(parts) >= 2:
+            position_exchange_codes.add(parts[1].upper())
+
     positions = []
     for p in positions_raw[:14]:
         wallet = p.get("walletImpact", {})
@@ -225,7 +244,7 @@ async def fetch_portfolio_data(api_key_id: str, api_secret: str, account_type: s
 
     return_pct = (total_return / net_deposits * 100) if net_deposits != 0 else 0.0
 
-    market_info = _get_market_status(exchanges)
+    exchange_statuses = _get_exchange_statuses(exchanges, position_exchange_codes)
 
     return {
         "total_value": _fmt(total_value),
@@ -241,9 +260,7 @@ async def fetch_portfolio_data(api_key_id: str, api_secret: str, account_type: s
         "positions": positions,
         "has_error": False,
         "error": "",
-        "market_open": market_info["market_open"],
-        "market_status": market_info["market_status"],
-        "market_name": market_info["market_name"],
+        "exchange_statuses": exchange_statuses,
         # 24hr change fields populated by endpoint handler
         "change_24h": "",
         "change_24h_pct": "",
