@@ -131,13 +131,16 @@ def _parse_exchange_schedule(exchange: dict, now: datetime) -> dict | None:
     return None
 
 
+_DEFAULT_EXCHANGES = {"NYSE", "NASDAQ"}
+
+
 def _get_exchange_statuses(exchanges: list, position_codes: set[str]) -> list[dict]:
     """Return open/closed status for each exchange relevant to the given position codes.
 
-    position_codes are the exchange segments extracted from position tickers
+    NYSE and NASDAQ are always included by default.  Additional exchanges are added
+    based on position_codes — the exchange segments extracted from position tickers
     (e.g. ticker 'AAPL_US_EQ' → code 'US').  Matching is case-insensitive substring
-    check against the exchange name.  If nothing matches we fall back to all exchanges
-    that are currently open or have an upcoming open event.
+    check against the exchange name.
     """
     if not isinstance(exchanges, list):
         return []
@@ -149,15 +152,19 @@ def _get_exchange_statuses(exchanges: list, position_codes: set[str]) -> list[di
         name = exchange.get("name", "")
         name_upper = name.upper()
 
-        if position_codes:
-            if not any(code in name_upper or name_upper == code for code in position_codes):
-                continue
+        is_default = any(d in name_upper for d in _DEFAULT_EXCHANGES)
+        matches_position = position_codes and any(
+            code in name_upper or name_upper == code for code in position_codes
+        )
+
+        if not is_default and not matches_position:
+            continue
 
         parsed = _parse_exchange_schedule(exchange, now)
         if parsed:
             results.append(parsed)
 
-    # Fallback: if position-code filtering yielded nothing, show all with known status
+    # Fallback: if filtering yielded nothing, show all with known status
     if not results:
         for exchange in exchanges:
             parsed = _parse_exchange_schedule(exchange, now)
