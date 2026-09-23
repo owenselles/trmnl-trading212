@@ -9,7 +9,7 @@ no_screen_padding: "no"
 dark_mode: "no"
 static_data: ""
 polling_verb: get
-polling_url: "https://web-production-c5105.up.railway.app/data?api_key_id=##{{ api_key_id }}&api_secret=##{{ api_secret }}&account_type=##{{ account_type }}"
+polling_url: "https://web-production-c5105.up.railway.app/data?api_key_id={{ api_key_id }}&api_secret={{ api_secret }}&account_type={{ account_type }}"
 polling_headers: ""
 name: Trading212 Portfolio
 refresh_interval: 60
